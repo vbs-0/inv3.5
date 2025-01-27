@@ -297,16 +297,17 @@ def products():
 @app.route('/products/add', methods=['POST'])
 def add_product():
     """Add product quantity route."""
-    product_id = request.form.get('product_id')  # Get the product ID
-    quantity_to_add = int(request.form.get('quantity'))  # Get the quantity to add
+    name = request.form.get('name')  # Get the product name
+    description = request.form.get('description')  # Get the product description
+    quantity = int(request.form.get('quantity'))  # Get the quantity to add
+    price = float(request.form.get('price'))  # Get the product price
+    category_id = request.form.get('category_id')  # Get the category ID
 
-    product = Product.query.get(product_id)  # Fetch the existing product
-    if product:
-        product.quantity += quantity_to_add  # Update the quantity
-        db.session.commit()  # Commit the changes
-        flash('Product quantity updated successfully')
-    else:
-        flash('Product not found', 'error')
+    # Create a new product instance
+    new_product = Product(name=name, description=description, quantity=quantity, price=price, category_id=category_id)
+    db.session.add(new_product)
+    db.session.commit()  # Commit the changes
+    flash('Product added successfully')
 
     return redirect(url_for('products'))  # Redirect back to the products page
 
@@ -689,9 +690,22 @@ def delete_product(product_id):
     """Delete product route."""
     log_user_activity(f'deleted product {product_id}')
     product = Product.query.get_or_404(product_id)
+
+    # Check for related records in OrderItem and BusPart
+    related_order_items = OrderItem.query.filter_by(product_id=product_id).all()
+    related_bus_parts = BusPart.query.filter_by(product_id=product_id).all()
+
+    # Delete related records if they exist
+    for item in related_order_items:
+        db.session.delete(item)
+
+    for part in related_bus_parts:
+        db.session.delete(part)
+
+    # Now delete the product
     db.session.delete(product)
     db.session.commit()
-    flash('Product deleted successfully')
+    flash('Product and related records deleted successfully')
     return redirect(url_for('products'))
 
 @app.route('/categories/edit/<int:category_id>', methods=['GET', 'POST'])
